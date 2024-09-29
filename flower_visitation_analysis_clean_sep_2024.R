@@ -600,7 +600,7 @@ summary(sppr_aov)
 ########################
 
 ?adonis2
-#cant handle rows with no zeros
+#cant handle rows with only zeros
 data_long_wide_nozeros<-data_long_wide[rowSums(data_long_wide)>0, ]
 
 data_long_wide_nozeros_meta <- data_long_wide_nozeros %>% 
