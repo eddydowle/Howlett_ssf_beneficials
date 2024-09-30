@@ -426,12 +426,12 @@ plot_nmds1
 
 #dont need to do cabbage as that only has one year which we already did
 #firstly 2021-2022
-data_long_season<-data_long_allseasons %>% ungroup() %>% filter(season=='2021-2022 Season') %>% pivot_wider(names_from = Insect_key_name, values_from = Insect_count)
+#data_long_season<-data_long_allseasons %>% ungroup() %>% filter(season=='2021-2022 Season') %>% pivot_wider(names_from = Insect_key_name, values_from = Insect_count)
 #second 2022-2023
 #drop glentunnel which has the 0 counts
 #data_long_season<-data_long_allseasons %>% ungroup() %>% filter( season=='2022-2023 Season'& Property_name!='Glentunnel') %>% pivot_wider(names_from = Insect_key_name, values_from = Insect_count)
 #third 2023-2024
-#data_long_season<-data_long_allseasons %>% ungroup() %>% filter( season=='2023-2024 Season') %>% pivot_wider(names_from = Insect_key_name, values_from = Insect_count)
+data_long_season<-data_long_allseasons %>% ungroup() %>% filter( season=='2023-2024 Season') %>% pivot_wider(names_from = Insect_key_name, values_from = Insect_count)
 
 data_long_season<-data_long_season %>% ungroup() %>% mutate(Property_plant=paste(Property_name,Native_Plant_Species,Tree_number,sep='_')) %>% select(-Timeperiod,-`Categorical insect grouping`,-Brad_names,-Eddy_names,-Brad_colours,-Property_name,-Native_Plant_Species,-Tree_number,-season) %>% group_by(Property_plant) %>% summarise(across(everything(), sum,na.rm = TRUE))
 
@@ -456,7 +456,7 @@ plot_df <- scores(plant_NMDS, display = "sites") %>%
   rownames_to_column("site") %>% mutate(site_name=str_extract(site, ".+(?=_Ver)|.+(?=_Kun)|.+(?=_Cor)")) %>% 
   mutate(plant_name=str_extract(site, "Veronica_salicifolia|Kunzea_ericoides|Cordyline_australis"))%>% 
   mutate(season=str_extract(site, "2021-2022 Season|2022-2023 Season|2023-2024 Season")) %>%
-  left_join(meta_data_farm, by = c("site" = "Property_name"))
+  left_join(meta_data_farm, by = c("site_name" = "Property_name"))
 
 plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = plant_name)) +
   geom_point(size = 3, alpha = 0.8) +
@@ -474,9 +474,9 @@ plot_nmds1 <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = plant_name)) +
   geom_point(size = 2, alpha = 0.8) +
   stat_ellipse(linetype = 2, size = 1) +
   theme_bw()+
-  labs(title = 'NMDS: Season 2021-2022')+
+  #labs(title = 'NMDS: Season 2021-2022')+
   #labs(title = 'NMDS: Season 2022-2023')+
-  #labs(title = 'NMDS: Season 2023-2024')+
+  labs(title = 'NMDS: Season 2023-2024')+
   scale_colour_manual(values=mycol3)+
   #scale_colour_manual(values=mycol2)+
     theme(plot.title = element_text(size = 10),axis.title=element_text(size=8))+ guides(color=guide_legend(title="Plant"))
@@ -503,6 +503,10 @@ fit_spp <- fit %>%
 filter(pvals <= 0.001)
 #0.05 is a lot of speices could try 0.01, which is still>20 which is hard to plot
 
+#brad has new names
+new_names_brad<-read.csv('NewNames_NMDSarrows.csv')
+fit_spp<-left_join(fit_spp,new_names_brad,by=c('species'='Old_name'))
+
 # new plot
 nmds_plot_new <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2)) +
   coord_fixed() +
@@ -516,6 +520,7 @@ nmds_plot_new <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2)) +
   theme_bw()
 nmds_plot_new
 
+
 library(ggrepel)
 mycol3 = c(brewer.pal(name="Set1", n = 3))
 mycol3
@@ -526,18 +531,38 @@ plot_nmds1 <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2)) +
   geom_point(aes(color=plant_name),size = 2, alpha = 0.8) +
   stat_ellipse(aes(color=plant_name),linetype = 2,size=1) +
   theme_bw()+
-  labs(title = 'NMDS: Season 2021-2022, pval <0.001')+
+ # labs(title = 'NMDS: Season 2021-2022, pval <0.001')+
   #labs(title = 'NMDS: Season 2022-2023, pval <0.001')+
-  #labs(title = 'NMDS: Season 2023-2024, pval <0.001')+
+  labs(title = 'NMDS: Season 2023-2024, pval <0.001')+
   #scale_colour_manual(values=mycol3)+
   geom_segment(data = fit_spp, aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
                arrow = arrow(length = unit(0.25, "cm")),
                col = "black") +
-  scale_colour_manual(values=mycol3)+
+  scale_colour_manual(values=mycol2)+
   #geom_text(data = fit_spp, aes(label = species)) +
   geom_text_repel(data = fit_spp, aes(label = species), segment.color="red",max.overlaps=59)+
   theme(plot.title = element_text(size = 10),axis.title=element_text(size=8))+ guides(color=guide_legend(title="Plant"))
 plot_nmds1
+
+#new names
+plot_nmds1 <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2)) +
+  coord_fixed() +
+  geom_point(aes(color=plant_name),size = 2, alpha = 0.8) +
+  stat_ellipse(aes(color=plant_name),linetype = 2,size=1) +
+  theme_bw()+
+ # labs(title = 'NMDS: Season 2021-2022, pval <0.001')+
+  #labs(title = 'NMDS: Season 2022-2023, pval <0.001')+
+  labs(title = 'NMDS: Season 2023-2024, pval <0.001')+
+  #scale_colour_manual(values=mycol3)+
+  geom_segment(data = fit_spp, aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               col = "black") +
+  scale_colour_manual(values=mycol2)+
+  #geom_text(data = fit_spp, aes(label = species)) +
+  geom_text_repel(data = fit_spp, aes(label = New_name), segment.color="red",max.overlaps=59)+
+  theme(plot.title = element_text(size = 10),axis.title=element_text(size=8))+ guides(color=guide_legend(title="Plant"))
+plot_nmds1
+
 
 #very busy but maybe of use to brad
 
