@@ -1,0 +1,355 @@
+---
+title: "quick_analysis_forbradSep2024"
+author: "Eddy Dowle"
+date: "2024-09-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+## Overview
+
+A quick and dirty analysis of some of brads data using vegan
+
+
+```{r import, echo=TRUE}
+#having a look at the files
+library('tidyverse')
+library('readxl')
+library('vegan')
+
+setwd("C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Analysis_Sep2024")
+#im treating blanks as 0 I have discussed the difference between a null or NA and a 0 with brad and he thinks all blank cells should be 0
+#insect visitation data
+insects_2024<-read_excel('Flower visit data Eddy 2024_noblanks.xlsx', sheet = '2024 data',na='NA')
+#I have fixed various issues with this file but there is still the double rows for Marr in it
+head(insects_2024)
+#meta data
+#tidied up due to some doubles so use tidy version for metadata
+meta_data_farm<-read.csv('Farm_meta_data_sep2024.csv')
+head(meta_data_farm)
+
+unique(insects_2024$Native_Plant_Species)
+#brad wants to focus on
+#Veronica_salicifolia hebe
+#Leptospermum_scoparium kanuka
+#Cordyline_australis cabbage tree
+```
+
+## Just looking at Veronica_salicifolia for now
+
+```{r dataframe, echo=TRUE}
+test<-insects_2024 %>% filter(Native_Plant_Species=="Veronica_salicifolia") %>% select(Insect_key_name,Timeperiod,Property_name,Tree_number,Insect_count)
+
+unique(test$Insect_key_name)
+unique(test$Timeperiod)
+unique(test$Property_name)
+unique(test$Insect_count)
+unique(test$Tree_number)
+
+```
+
+## What do we want?
+Diversity across farms, diversity morning afternoon midday?
+Dversity across tree species within a farm? Could group plots by farm?
+
+I think for the diversity plots it would be good to include the diversity across the three species side by side but will get feedback before going further
+
+```{r cleanup, echo=TRUE}
+#getting rid of the Marr dups by summing them (not sure if this is the way we should deal with them)
+data_long <- test %>% 
+  group_by(Property_name, Timeperiod,Tree_number,Insect_key_name) %>%
+  summarise(Insect_count = sum(Insect_count))
+#here is an example of the Marr dups:
+#its not a straight dup as the counts vary across the dups so I dont know whats going on but Im just going to keep the sumed values, maybe two people did the survey and it got entered twice???? who knows
+test %>% filter(Property_name=='Marr',Insect_key_name=='Honey bee', Timeperiod=='Morning')
+
+#so we want a spreadsheet of:
+#farm #time #rep #counts_spA #counts_spB etc
+data_long_wide<-data_long %>% pivot_wider(names_from = Insect_key_name, values_from = Insect_count)
+
+```
+
+## Abundance plots
+Need to recolour the species groupings, brad has given me the taxonomy file I just havent incorporated it yet
+
+```{r abundance, echo=TRUE}
+#raw abundance plots
+data_long$Timeperiod <- factor(data_long$Timeperiod, levels=c("Morning", "Midday", "Afternoon"))
+
+#legends are really huge so just switching them of for now
+ggplot(data_long, aes(x = Timeperiod, y = Insect_count, fill = Insect_key_name)) + geom_bar(stat = "identity")+ theme_bw()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +ggtitle('Raw abundances') +theme(legend.position = 'none')
+
+ggplot(data_long, aes(x = Timeperiod, y = Insect_count, fill = Insect_key_name)) + geom_bar(stat = "identity")+ theme_bw()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +ggtitle('Raw abundances')+ facet_wrap(vars(Property_name)) +theme(legend.position = 'none')
+
+#relative abundances
+data_long_ra<-data_long %>% ungroup() %>%  select(-Tree_number) %>% 
+  group_by(Property_name,Timeperiod,Insect_key_name) %>%
+  summarise(Insect_count =  sum(Insect_count))%>%  mutate(per =  100 *Insect_count/sum(Insect_count)) %>% 
+  ungroup()
+
+ggplot(data_long_ra, aes(x = Timeperiod, y = per, fill = Insect_key_name)) + geom_bar(stat = "identity")+ theme_bw()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +ggtitle('Relative abundances')+ facet_wrap(vars(Property_name)) +theme(legend.position = 'none')
+```
+
+
+## Alpha diversity
+For diversity analyses, for now Im just doing by property, can chat with Brad about whether he wants to split it further
+
+```{r alpha, echo=TRUE}
+#just going to simplify down to Property_name to start with
+data_long_wide_sumproperty<-data_long_wide %>% ungroup() %>% select(-Tree_number,-Timeperiod) %>% group_by(Property_name) %>% summarise(across(everything(), sum,na.rm = TRUE))
+
+#diversity plots
+data_long_wide_sumproperty<-data_long_wide_sumproperty %>% remove_rownames %>% column_to_rownames(var="Property_name")
+
+#alpha diversity
+#count number of species per property
+sppr <- specnumber(data_long_wide_sumproperty)
+sppr
+
+#anova against environmental variables, does mean species richness vary among sites?
+#not all farms have this plants data:
+relavent_farms<-row.names(data_long_wide_sumproperty)
+meta_data_farm_sub<-meta_data_farm %>% filter(Property_name %in% relavent_farms)
+#try farm.type
+sppr_aov <-aov(sppr ~ Farm.type, data = meta_data_farm_sub)
+summary(sppr_aov)
+#try planting.type
+sppr_aov <-aov(sppr ~ Planting.type, data = meta_data_farm_sub)
+summary(sppr_aov)
+#plant age
+sppr_aov <-aov(sppr ~ Plant.age, data = meta_data_farm_sub)
+summary(sppr_aov)
+#planting area size
+sppr_aov <-aov(sppr ~ Planting.area.size, data = meta_data_farm_sub)
+summary(sppr_aov)
+#no environmental variables significant
+
+#future thing
+#should do this across the three different plant species (does diversity change between plant species)
+
+#can plot that out
+sppr_df <- sppr %>% 
+  enframe() %>% 
+  full_join(meta_data_farm_sub, by = c("name" = "Property_name"))
+
+plot_sppr <- ggplot(sppr_df, aes(x = Farm.type, y = value, fill = Farm.type)) +
+  geom_boxplot() +
+  theme_bw()+
+  labs(x = "Farm type",
+       y = "Number of species per site",
+       title = "Species richness")
+plot_sppr
+```
+
+
+## Alpha diversity - shannon
+Abundance and eveness
+
+```{r alpha_shannon, echo=TRUE}
+#shannon diversity index (takes into account richness and evenness)
+#diversity function in vegan
+shannondiv <- diversity(data_long_wide_sumproperty)
+head(shannondiv)
+
+#anova against shannon diversity, does mean species richness vary among sites?
+#try farm.type
+sppr_aov <-aov(shannondiv ~ Farm.type, data = meta_data_farm_sub)
+summary(sppr_aov)
+#try planting.type
+sppr_aov <-aov(shannondiv ~ Planting.type, data = meta_data_farm_sub)
+summary(sppr_aov)
+#plant age
+sppr_aov <-aov(shannondiv ~ Plant.age, data = meta_data_farm_sub)
+summary(sppr_aov)
+#planting area size
+sppr_aov <-aov(shannondiv ~ Planting.area.size, data = meta_data_farm_sub)
+summary(sppr_aov)
+
+#can plot that out
+shannondiv_df <- shannondiv %>% 
+  enframe() %>% 
+  full_join(meta_data_farm_sub, by = c("name" = "Property_name"))
+
+plot_sppr <- ggplot(shannondiv_df, aes(x = Farm.type, y = value, fill = Farm.type)) +
+  geom_boxplot() +
+  theme_bw()+
+  labs(x = "Farm type",
+       y = "Shannon diversity richness",
+       title = "Species richness")
+plot_sppr
+```
+
+
+## Beta diversity
+Using permanova to assess community composition differences
+
+```{r beta, echo=TRUE}
+perm <- adonis2(data_long_wide_sumproperty ~ Farm.type, data = meta_data_farm_sub)
+perm
+perm <- adonis2(data_long_wide_sumproperty ~ Plant.age, data = meta_data_farm_sub)
+perm
+```
+
+## PCA analysis
+
+```{r pca, echo=TRUE}
+#plot them out on PCA 
+plantPCA <- rda(data_long_wide_sumproperty)
+plantPCA
+
+PCAscores <- scores(plantPCA, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_farm_sub, by = c("site" = "Property_name"))
+
+PCAvect <- scores(plantPCA, display = "species") %>% 
+  as.data.frame()
+
+
+plot_PCA <- ggplot() +
+  geom_point(data = PCAscores, aes(x = PC1, y = PC2, color = Farm.type)) +
+  labs(title = "Principal Components Analysis") +
+  theme_bw()
+plot_PCA
+#could plot insect species out on them but there is really too many species for this
+```
+
+
+## MDS analysis
+I think for the diversity plots it would be good to include the diversity across the three species side by side but will get feedback before going further
+
+```{r mds, echo=TRUE}
+plant_NMDS <- metaMDS(data_long_wide_sumproperty)
+plant_NMDS
+#stress <0.2
+stressplot(plant_NMDS)
+plot(plant_NMDS)
+
+plot_df <- scores(plant_NMDS, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_farm_sub, by = c("site" = "Property_name"))
+plot_nmds <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2, color = Farm.type, shape = Farm.type)) +
+  geom_point(size = 3, alpha = 0.8) +
+  stat_ellipse(linetype = 2, size = 1) +
+  theme_bw()+
+  labs(title = "NMDS")
+plot_nmds
+```
+
+## MDS with arrows
+What species contribute to the structure
+
+```{r mds_arrow, echo=TRUE}
+#seeing what species contribute to the plot
+# envfit() takes the output of metaMDS() and the species matrix you created
+fit <- envfit(plant_NMDS, data_long_wide_sumproperty, perm = 999) 
+
+# extract p-values for each species
+fit_pvals <- fit$vectors$pvals %>% 
+  as.data.frame() %>% 
+  rownames_to_column("species") %>% 
+  dplyr::rename("pvals" = ".")
+
+# extract coordinates for species, only keep species with p-val = 0.001
+fit_spp <- fit %>% 
+  scores(., display = "vectors") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("species") %>% 
+  full_join(., fit_pvals, by = "species") %>% 
+  filter(pvals == 0.001)
+
+# new plot
+nmds_plot_new <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2)) +
+  coord_fixed() +
+  geom_point(aes(color = Farm.type, shape = Farm.type), size = 3, alpha = 0.8) +
+  stat_ellipse(aes(color = Farm.type)) +
+  #scale_color_manual(values = pal) +
+  geom_segment(data = fit_spp, aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               col = "black") +
+  geom_text(data = fit_spp, aes(label = species)) +
+  theme_bw()
+nmds_plot_new
+```
+
+## MDS and environmental variables
+Arrows only work for continuous variables so I cant add in factors
+
+```{r mds_arrow2, echo=TRUE}
+ef <- envfit(plant_NMDS ~ Planting.area.size + Plant.age, data = meta_data_farm_sub, perm = 999)
+ef
+
+class(meta_data_farm_sub$Planting.type)
+
+# extract p-values for each variable
+ef_pvals <- ef$vectors$pvals %>% 
+  as.data.frame() %>% 
+  rownames_to_column("env_var") %>% 
+  dplyr::rename("pvals" = ".")
+# extract coordinates for variable, only keep those with p-val = 0.001
+ef_spp <- ef %>% 
+  scores(., display = "vectors") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("env_var") %>% 
+  full_join(., ef_pvals, by = "env_var") %>% 
+  filter(pvals == 0.001)
+
+#none significant so will not show up on plot
+# new plot
+nmds_plot_new <- ggplot(plot_df, aes(x = NMDS1, y = NMDS2)) +
+  coord_fixed() +
+  geom_point(aes(color = Farm.type, shape = Farm.type), size = 3, alpha = 0.8) +
+  stat_ellipse(aes(color = Farm.type)) +
+  #scale_color_manual(values = pal) +
+  geom_segment(data = ef_spp, aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2),
+               arrow = arrow(length = unit(0.25, "cm")),
+               col = "black") +
+  geom_text(data = ef_spp, aes(label = env_var)) +
+  theme_bw()
+nmds_plot_new
+```
+
+## Canonical corrrespondence analysis
+Im not very familiar with these but it seems to you can have factors in them too...?
+With the MDS stuff I was limiting it to significant variables (there was not significant env and only one sig insect in this set but I dont know how to do that for CCA yet)
+
+```{r cca, echo=TRUE}
+#think maybe I can add in categorical variables here, lets try
+plantCCA <- cca(data_long_wide_sumproperty ~ Farm.type +Planting.area.size + Plant.age+ Planting.type , data = meta_data_farm_sub)
+plantCCA
+plot(plantCCA)
+
+ccavectors <- as.matrix(scores(plantCCA, display = "bp", scaling = "species")*7.627807) %>% 
+  as.data.frame()
+
+# site coordinates
+site_data <- scores(plantCCA, display = "sites") %>% 
+  as.data.frame() %>% 
+  rownames_to_column("site") %>% 
+  full_join(meta_data_farm_sub, by = c("site" = "Property_name"))
+
+# species coordinates
+species_data <- scores(plantCCA, display = "species") %>% 
+  as.data.frame()
+
+# plotting
+plot_cca <- ggplot(site_data) +
+  geom_point(aes(x = CCA1, y = CCA2, color = Farm.type), shape = 19, size = 2, alpha = 0.8) +
+  coord_fixed() +
+  #scale_color_manual(values = pal) +
+  geom_segment(data = ccavectors, aes(x = 0, y = 0, xend = CCA1, yend = CCA2), arrow = arrow(length = unit(0.2, "cm"))) +
+  geom_vline(xintercept = c(0), color = "grey70", linetype = 2) +
+  geom_hline(yintercept = c(0), color = "grey70", linetype = 2) +
+#  geom_point(data = species_data, aes(x = CCA1, y = CCA2), shape = 17, size = 2, color = "slateblue") +
+#  scale_x_continuous(limits = c(-12, 10)) +
+ # scale_y_continuous(limits = c(-3, 12)) +
+  geom_text(data = ccavectors, aes(x = CCA1, y = CCA2, label = rownames(ccavectors)), nudge_x = 0.3, nudge_y = 0.3) +
+  theme_bw() +
+  labs(title = "Canonical Correspondence Analysis")
+plot_cca
+```
+
