@@ -7,6 +7,8 @@ library(lme4)
 library(readxl)
 library(svglite)
 
+setwd("C:/Users/hrlexd/Dropbox/PlantAndFood (1)/B4BI/Review_paper2024")
+
 apple<-read_excel('Copy of Pie chart data for Eddy.xlsx',sheet='Apple')
 pear<-read_excel('Copy of Pie chart data for Eddy.xlsx',sheet='Pear')
 avocado<-read_excel('Copy of Pie chart data for Eddy.xlsx',sheet='Avocado')
