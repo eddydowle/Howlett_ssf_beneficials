@@ -171,7 +171,7 @@ summary_table_count<-crops_together_summarytable %>% select(-Individual_bee_id_e
 
 summary_table<-full_join(summary_table_count,summary_table)
 
-write.csv(summary_table,'Summary_table_inflorescence_visits.csv',quote=F,row.names = F)
+#write.csv(summary_table,'Summary_table_inflorescence_visits.csv',quote=F,row.names = F)
 
 
 #doing some basic stats
@@ -237,8 +237,8 @@ for (item in crops) {
   
 }
 
-write.table(dunn_table_out,'Dunn_analysis_Dec2024_inflorescenceVisitPerMin.csv',sep=',',quote=F,row.names = F)
-write.table(kruskal_table_out,'Kruskal_analysis_Dec2024_inflorescenceVisitPerMin.csv',sep=',',quote=F,row.names = F)
+#write.table(dunn_table_out,'Dunn_analysis_Dec2024_inflorescenceVisitPerMin.csv',sep=',',quote=F,row.names = F)
+#write.table(kruskal_table_out,'Kruskal_analysis_Dec2024_inflorescenceVisitPerMin.csv',sep=',',quote=F,row.names = F)
 
 
 ##########################################################################
@@ -300,8 +300,8 @@ for (item in crops) {
   
 }
 
-write.table(dunn_table_out,'Dunn_analysis_Dec2024_AverageTimeFlower.csv',sep=',',quote=F,row.names = F)
-write.table(kruskal_table_out,'Kruskal_analysis_Dec2024_AverageTimeFlower.csv',sep=',',quote=F,row.names = F)
+#write.table(dunn_table_out,'Dunn_analysis_Dec2024_AverageTimeFlower.csv',sep=',',quote=F,row.names = F)
+#write.table(kruskal_table_out,'Kruskal_analysis_Dec2024_AverageTimeFlower.csv',sep=',',quote=F,row.names = F)
 
 ########################################################
 ########analysis of stigma times########################
@@ -327,7 +327,7 @@ crops_together_summarytable %>% filter(Crop!='Avocado'&Crop!='Kiwifruit') %>%
   scale_fill_manual(values=with(brads_col,setNames(species_col,species)))+
   labs(y= "Average number stigma touches per inflorescence") + guides(fill=guide_legend(title="Species"))
 
-
+#brads removing carrot due to its actually an umblet not stigma touches
 
 #Brad things average time on inflorescence is the right 
 #test for normal distributions 
